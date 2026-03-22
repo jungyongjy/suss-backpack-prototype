@@ -3,7 +3,7 @@
 
 This repository hosts a fully functional, mobile-optimised React prototype for a reimagined SUSS Backpack application. 
 
-🔗 **[Click here to view the Live Interactive Prototype](https://[jungyongjy].github.io/suss-backpack-prototype/)**
+🔗 **[Click here to view the Live Interactive Prototype](https://jungyongjy.github.io/suss-backpack-prototype/)**
 
 ## Project Overview
 This prototype was developed following the Empathise, Define, Ideate, and Prototype phases of the Design Thinking process. It directly addresses user pain points identified through contextual inquiries by applying key Human Factors and Ergonomics (HFE) principles.
