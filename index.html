@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SUSS Backpack Prototype</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Babel to compile JSX in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; background-color: #e5e7eb; }
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Custom scrollbar for booking grid */
+        .custom-scrollbar::-webkit-scrollbar { height: 10px; width: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 8px; margin: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Dark Mode Scrollbar adjustments handled via JS dynamically where possible, 
+           but CSS fallback is provided here */
+        .dark-mode-scroll::-webkit-scrollbar-track { background: #374151; }
+        .dark-mode-scroll::-webkit-scrollbar-thumb { background: #6b7280; }
+        .dark-mode-scroll::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- The actual React App -->
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useRef, useMemo } from 'https://esm.sh/react@18';
+        import { createRoot } from 'https://esm.sh/react-dom@18/client';
+        import { 
+          Bell, Settings, MapPin, CreditCard, Calendar as CalendarIcon, 
+          Home, Menu, Camera, TrendingUp, BookOpen, Clock, ChevronRight, 
+          Search, Navigation, Video, ChevronDown, ChevronUp, Users, Coffee, Briefcase, Layers,
+          ArrowUpCircle, Info, Activity, ChevronLeft, CheckCircle, AlertTriangle, Moon, Sun, Phone, Mail, X,
+          CalendarDays, FileText, Plus, Trash2, ChevronRight as CalendarArrowRight, ChevronLeft as CalendarArrowLeft,
+          GraduationCap
+        } from 'https://esm.sh/lucide-react@0.292.0';
+
+        const App = () => {
+          const [currentView, setCurrentView] = useState('home');
+          const [isDarkMode, setIsDarkMode] = useState(false);
+
+          // Mock User Data
+          const user = {
+            name: "Sarah Ng",
+            email: "sarah.ng@suss.edu.sg",
+            id: "S1234567A",
+            currentCGPA: 4.20,
+            currentCUs: 90, 
+            major: "Marketing"
+          };
+
+          // Helper to generate room numbers
+          const generateRooms = (block, level, start, end) => {
+            let rooms = [];
+            for(let i=start; i<=end; i++) {
+                rooms.push(`${block}.${level}.${i.toString().padStart(2, '0')}`);
+            }
+            return rooms;
+          };
+
+          // --- Location Data ---
+          const locationData = {
+            "Food & Drink": { icon: Coffee, items: ["Cheers", "Far East Cafe", "Food & Drinks Vending Machines", "SIM Canteen", "Food Clique"] },
+            "Meeting Rooms & Offices": { icon: Briefcase, items: ["Admin Group Office", "Admin Office IT", "Assignment Boxes", "AV Presentation Lab", "Biomed Engineering Lab 1", "Biomed Engineering Lab 2", "Boardroom A", "Boardroom C", "C6.A Meeting Room"] },
+            "Seminar Rooms": { icon: BookOpen, items: [ ...generateRooms('C', 3, 8, 16), ...generateRooms('C', 4, 8, 16), ...generateRooms('C', 5, 7, 15), ...generateRooms('C', 6, 5, 13), ...generateRooms('C', 7, 7, 15), ...generateRooms('C', 8, 4, 11) ] },
+            "Lecture Theatres": { icon: Users, items: ["LT 1", "LT 2", "LT 3"] },
+            "Services": { icon: Settings, items: ["Student Support", "IT Helpdesk"] },
+            "Recreation": { icon: TrendingUp, items: ["Gymnasium", "Student Lounge"] },
+            "Blocks": { icon: Layers, items: ["Block A", "Block B", "Block C"] },
+          };
+
+          const MobileHeader = ({ title }) => (
+            <div className={`px-4 py-3 flex items-center gap-3 shadow-sm sticky top-0 z-50 transition-colors ${isDarkMode ? 'bg-gray-800 border-b border-gray-700' : 'bg-white'}`}>
+              <button onClick={() => setCurrentView('home')} className={`p-1.5 rounded-full transition-colors ${isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}><ChevronLeft size={20} /></button>
+              <h2 className={`font-bold text-lg ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{title}</h2>
+            </div>
+          );
+
+          // --- Views ---
+
+          const HomeView = () => {
+            const [showNotifs, setShowNotifs] = useState(false);
+            const [showSettings, setShowSettings] = useState(false);
+            const [showMonthCalendar, setShowMonthCalendar] = useState(false);
+            const [calendarMonthDate, setCalendarMonthDate] = useState(new Date(2026, 1, 1)); 
+            
+            const [currentWeekStart, setCurrentWeekStart] = useState(new Date(2026, 1, 2)); 
+            const [selectedDate, setSelectedDate] = useState('2026-02-05'); 
+            
+            const scheduleScrollRef = useRef(null);
+            const dateRefs = useRef({});
+
+            const scheduleData = useMemo(() => {
+              const data = {};
+              let d = new Date(2026, 1, 2); 
+              const endD = new Date(2026, 3, 12); 
+              
+              while (d <= endD) {
+                const dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                const day = d.getDay();
+                if (day === 1) data[dateStr] = [{ type: 'class', title: 'BUS105', time: '0830 - 1130', venue: 'C.4.15', desc: 'Statistics' }];
+                if (day === 3) data[dateStr] = [{ type: 'class', title: 'MKT202', time: '1200 - 1500', venue: 'Blk B 4.12', desc: 'Consumer Behavior' }];
+                if (day === 4) data[dateStr] = [{ type: 'class', title: 'HRM313', time: '0830 - 1130', venue: 'C.3.11', desc: 'HR Management' }];
+                d.setDate(d.getDate() + 1);
+              }
+
+              if(!data['2026-02-06']) data['2026-02-06'] = [];
+              data['2026-02-06'].push({ type: 'deadline', title: 'NCO205', time: '2359', desc: 'Pre-course Quiz' });
+              
+              data['2026-02-08'] = [{ type: 'deadline', title: 'MKT202', time: '1200', desc: 'GBA01 (Group Based Assignment)' }];
+              
+              if(!data['2026-02-09']) data['2026-02-09'] = [];
+              data['2026-02-09'].push({ type: 'event', title: 'Career Fair', time: '1000 - 1600', venue: 'Atrium', desc: 'Networking Event' });
+              
+              if(!data['2026-02-16']) data['2026-02-16'] = [];
+              data['2026-02-16'].push({ type: 'deadline', title: 'BUS105', time: '2355', desc: 'TMA01 (Tutor Marked Assignment)' });
+
+              data['2026-03-01'] = [{ type: 'deadline', title: 'HRM313', time: '2359', desc: 'Mid-term Report' }];
+              data['2026-03-15'] = [{ type: 'event', title: 'SUSS Open House', time: '0900 - 1800', venue: 'Main Campus', desc: 'Student Ambassador Duty' }];
+              
+              data['2026-04-20'] = [{ type: 'exam', title: 'MKT202 Exam', time: '0900 - 1100', venue: 'Blk A Hall', desc: 'Final Examination' }];
+              data['2026-04-22'] = [{ type: 'exam', title: 'HRM313 Exam', time: '1400 - 1600', venue: 'Blk A Hall', desc: 'Final Examination' }];
+              data['2026-04-24'] = [{ type: 'exam', title: 'BUS105 Exam', time: '0900 - 1100', venue: 'Blk B Hall', desc: 'Final Examination' }];
+
+              return data;
+            }, []);
+
+            const getAcademicWeekInfo = (date) => {
+              const termStart = new Date(2026, 0, 12); 
+              const diffTime = Math.abs(date - termStart);
+              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+              const weekNumber = Math.ceil((diffDays + termStart.getDay()) / 7);
+              
+              const examStart = new Date(2026, 3, 13); 
+              const examEnd = new Date(2026, 3, 25);   
+              
+              if (date >= examStart && date <= examEnd) return "Exams Week";
+              if (date < termStart) return "Pre-Term";
+              if (weekNumber > 12 && date < examStart) return "Study Break";
+              if (weekNumber > 0 && weekNumber <= 12) return `Week ${weekNumber}`;
+              return "";
+            };
+
+            const academicWeekText = getAcademicWeekInfo(currentWeekStart);
+
+            const currentWeekDates = useMemo(() => {
+              const dates = [];
+              for (let i = 0; i < 7; i++) {
+                const d = new Date(currentWeekStart);
+                d.setDate(d.getDate() + i);
+                dates.push(d);
+              }
+              return dates;
+            }, [currentWeekStart]);
+
+            const formatDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const getDayName = (d) => d.toLocaleDateString('en-US', { weekday: 'short' });
+
+            const handleDateSelect = (fDate) => {
+              setSelectedDate(fDate);
+              if (dateRefs.current[fDate]) {
+                const container = scheduleScrollRef.current;
+                const target = dateRefs.current[fDate];
+                if (container && target) {
+                   container.scrollTo({ top: target.offsetTop - container.offsetTop - 16, behavior: 'smooth' });
+                }
+              }
+            };
+
+            const nextWeek = () => {
+              const next = new Date(currentWeekStart);
+              next.setDate(next.getDate() + 7);
+              setCurrentWeekStart(next);
+              setSelectedDate(formatDate(next)); 
+              if (scheduleScrollRef.current) scheduleScrollRef.current.scrollTop = 0;
+            };
+
+            const prevWeek = () => {
+              const prev = new Date(currentWeekStart);
+              prev.setDate(prev.getDate() - 7);
+              setCurrentWeekStart(prev);
+              setSelectedDate(formatDate(prev)); 
+              if (scheduleScrollRef.current) scheduleScrollRef.current.scrollTop = 0;
+            };
+
+            const handleSync = () => {
+              const gCalLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=HRM313+Class&dates=20260205T003000Z/20260205T033000Z&details=Auto-synced+from+SUSS+Backpack&location=SUSS+Campus+Room+C.3.11`;
+              window.open(gCalLink, '_blank');
+            };
+
+            const nextMonth = () => setCalendarMonthDate(new Date(calendarMonthDate.getFullYear(), calendarMonthDate.getMonth() + 1, 1));
+            const prevMonth = () => setCalendarMonthDate(new Date(calendarMonthDate.getFullYear(), calendarMonthDate.getMonth() - 1, 1));
+            const daysInMonth = new Date(calendarMonthDate.getFullYear(), calendarMonthDate.getMonth() + 1, 0).getDate();
+            const startDay = new Date(calendarMonthDate.getFullYear(), calendarMonthDate.getMonth(), 1).getDay();
+            const monthDays = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+            const blanks = Array.from({ length: startDay }, (_, i) => i);
+
+            return (
+              <div className={`h-full flex flex-col relative transition-colors ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+                
+                {/* Absolute Dropdowns */}
+                <div className="absolute top-4 right-4 z-[100] flex gap-3">
+                  <div className="relative">
+                    <button 
+                      onClick={() => { setShowNotifs(!showNotifs); setShowSettings(false); }}
+                      className={`relative p-2 rounded-full transition-colors shadow-sm ${isDarkMode ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
+                    >
+                      <Bell size={20} />
+                      <span className={`absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 ${isDarkMode ? 'border-gray-800' : 'border-white'}`}></span>
+                    </button>
+                    
+                    {showNotifs && (
+                      <div className={`absolute right-0 top-12 w-72 max-w-[85vw] rounded-2xl shadow-2xl p-4 animate-in slide-in-from-top-2 border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                        <div className="flex justify-between items-center mb-3">
+                          <h3 className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Notifications</h3>
+                          <button onClick={() => setShowNotifs(false)} className="text-gray-400 hover:text-gray-600"><X size={16}/></button>
+                        </div>
+                        <div className="space-y-3">
+                          <div className={`p-3 rounded-xl ${isDarkMode ? 'bg-red-900/20 border border-red-900/50' : 'bg-red-50 border border-red-100'}`}>
+                            <p className="text-[10px] font-bold text-red-600 uppercase tracking-wider mb-1 flex items-center gap-1"><BookOpen size={12}/> Canvas</p>
+                            <p className={`text-xs font-semibold ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>MKT202 Assignment 1 Due</p>
+                            <p className={`text-[10px] ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Submission closes in 3 days.</p>
+                          </div>
+                          <div className={`p-3 rounded-xl ${isDarkMode ? 'bg-blue-900/20 border border-blue-900/50' : 'bg-blue-50 border border-blue-100'}`}>
+                            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-1 flex items-center gap-1"><MapPin size={12}/> Admin</p>
+                            <p className={`text-xs font-semibold ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>Venue Change: HRM313</p>
+                            <p className={`text-[10px] ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Class moved to C.3.11 today.</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="relative">
+                    <button 
+                      onClick={() => { setShowSettings(!showSettings); setShowNotifs(false); }}
+                      className={`p-2 rounded-full transition-colors shadow-sm ${isDarkMode ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
+                    >
+                      <Settings size={20} />
+                    </button>
+
+                    {showSettings && (
+                      <div className={`absolute right-0 top-12 w-64 max-w-[85vw] rounded-2xl shadow-2xl p-4 animate-in slide-in-from-top-2 border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                        <div className="flex justify-between items-center mb-4">
+                          <h3 className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Settings</h3>
+                          <button onClick={() => setShowSettings(false)} className="text-gray-400 hover:text-gray-600"><X size={16}/></button>
+                        </div>
+                        
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className={`text-sm font-semibold flex items-center gap-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                              {isDarkMode ? <Moon size={16}/> : <Sun size={16}/>} Appearance
+                            </span>
+                            <button onClick={() => setIsDarkMode(!isDarkMode)} className={`w-12 h-6 rounded-full relative transition-colors ${isDarkMode ? 'bg-red-600' : 'bg-gray-300'}`}>
+                              <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${isDarkMode ? 'left-7' : 'left-1'}`}></div>
+                            </button>
+                          </div>
+
+                          <div className={`h-px w-full ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div>
+
+                          <div>
+                            <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>SUSS Support</p>
+                            <a href="tel:+6562489228" className={`flex items-center gap-3 p-2 rounded-lg transition-colors text-sm mb-1 ${isDarkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'}`}>
+                              <Phone size={14} className="text-red-500"/>
+                              <div>
+                                <p className="font-semibold">IT Helpdesk</p>
+                                <p className="text-[10px] text-gray-500">+65 6248 9228</p>
+                              </div>
+                            </a>
+                            <a href="mailto:students@suss.edu.sg" className={`flex items-center gap-3 p-2 rounded-lg transition-colors text-sm mb-1 ${isDarkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'}`}>
+                              <Mail size={14} className="text-red-500"/>
+                              <div>
+                                <p className="font-semibold">Student Services</p>
+                                <p className="text-[10px] text-gray-500">students@suss.edu.sg</p>
+                              </div>
+                            </a>
+                            <a href="tel:+6562489220" className={`flex items-center gap-3 p-2 rounded-lg transition-colors text-sm ${isDarkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'}`}>
+                              <Phone size={14} className="text-red-500"/>
+                              <div>
+                                <p className="font-semibold">Library Hotline</p>
+                                <p className="text-[10px] text-gray-500">+65 6248 9220</p>
+                              </div>
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-5 pt-8 flex-shrink-0">
+                  <div className="pr-24">
+                    <h1 className={`text-3xl font-bold ${isDarkMode ? 'text-gray-100' : 'text-red-600'}`}>Welcome Sarah</h1>
+                    <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{user.email}</p>
+                  </div>
+                </div>
+
+                <div className={`px-2 pt-2 pb-2 shadow-sm flex-shrink-0 z-10 ${isDarkMode ? 'border-gray-800 bg-gray-800/50' : 'border-emerald-50 bg-white'}`}>
+                  <div className="flex justify-between items-center px-3 mb-2">
+                    <button 
+                      onClick={() => setShowMonthCalendar(true)}
+                      className={`font-bold text-lg flex items-center gap-2 rounded-lg transition-colors ${isDarkMode ? 'text-emerald-400 hover:text-emerald-300' : 'text-emerald-700 hover:text-emerald-600'}`}
+                    >
+                      <CalendarIcon size={20} /> Academic Schedule <ChevronDown size={16}/>
+                    </button>
+                    
+                    <div className="flex items-center gap-1">
+                      <button onClick={prevWeek} className={`p-1 rounded-full ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}><CalendarArrowLeft size={14}/></button>
+                      <div className="flex flex-col items-center px-1">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider leading-none ${isDarkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                          {academicWeekText}
+                        </span>
+                        <span className={`text-[9px] font-medium leading-none ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                          {currentWeekDates[0].toLocaleDateString('en-GB', { month: 'short' })}
+                        </span>
+                      </div>
+                      <button onClick={nextWeek} className={`p-1 rounded-full ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}><CalendarArrowRight size={14}/></button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between px-3 pb-2 gap-1">
+                    {currentWeekDates.map((date, idx) => {
+                      const fDate = formatDate(date);
+                      const isSelected = fDate === selectedDate;
+                      const hasEvents = scheduleData[fDate] && scheduleData[fDate].length > 0;
+                      const isToday = fDate === '2026-02-05'; 
+
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => handleDateSelect(fDate)}
+                          className={`flex-1 flex flex-col items-center justify-center py-2 rounded-xl transition-all border ${
+                            isSelected 
+                              ? 'bg-red-600 text-white border-red-600 shadow-md transform scale-105' 
+                              : isDarkMode
+                                ? 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700'
+                                : 'bg-gray-50 border-gray-100 text-gray-600 hover:bg-gray-100'
+                          } ${isToday && !isSelected ? 'border-red-400 border-2' : ''}`}
+                        >
+                          <span className={`text-[10px] font-bold uppercase tracking-wider ${isSelected ? 'text-red-100' : (isDarkMode ? 'text-gray-500' : 'text-gray-400')}`}>{getDayName(date)}</span>
+                          <span className="text-sm font-black">{date.getDate()}</span>
+                          <div className="h-1.5 w-full flex justify-center gap-0.5 mt-0.5">
+                            {hasEvents && scheduleData[fDate].map((ev, i) => (
+                              <div key={i} className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white' : (ev.type === 'deadline' ? 'bg-orange-500' : (ev.type === 'exam' ? 'bg-red-500' : (ev.type === 'event' ? 'bg-purple-500' : 'bg-emerald-500')))}`}></div>
+                            ))}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto hide-scrollbar p-5 pb-24 relative" ref={scheduleScrollRef}>
+                  <div className="space-y-6">
+                    {currentWeekDates.map((dateObj) => {
+                       const date = formatDate(dateObj);
+                       const events = scheduleData[date] || [];
+                       const isToday = date === '2026-02-05';
+                       
+                       return (
+                         <div key={date} ref={el => dateRefs.current[date] = el} className="scroll-mt-4 pb-2">
+                           <div className="flex justify-between items-center mb-3">
+                              <h3 className={`font-bold text-md ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                                 {dateObj.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+                              </h3>
+                              {isToday && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${isDarkMode ? 'bg-red-900/50 text-red-300' : 'bg-red-100 text-red-700'}`}>TODAY</span>}
+                           </div>
+
+                           {events.length === 0 ? (
+                              <div className={`p-4 text-center rounded-2xl border border-dashed ${isDarkMode ? 'bg-gray-800/50 border-gray-700 text-gray-500' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
+                                 <p className="font-semibold text-xs">No classes or deadlines.</p>
+                              </div>
+                           ) : (
+                             <div className="space-y-3">
+                               {events.map((ev, idx) => (
+                                 <div key={idx} className={`p-4 rounded-2xl shadow-sm border relative overflow-hidden ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                                   <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${ev.type === 'deadline' ? 'bg-orange-500' : (ev.type === 'exam' ? 'bg-red-600' : (ev.type === 'event' ? 'bg-purple-500' : 'bg-emerald-500'))}`}></div>
+                                   <div className="flex justify-between items-start mb-2 pl-2">
+                                     <div>
+                                       <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1 mb-1 w-max ${
+                                          ev.type === 'deadline' ? 'bg-orange-100 text-orange-700' : (ev.type === 'exam' ? 'bg-red-100 text-red-700' : (ev.type === 'event' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'))
+                                       }`}>
+                                         {ev.type === 'deadline' ? <FileText size={10}/> : (ev.type === 'exam' ? <GraduationCap size={10}/> : (ev.type === 'event' ? <Users size={10}/> : <BookOpen size={10}/>))} {ev.type}
+                                       </span>
+                                       <h3 className={`font-bold text-xl ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{ev.title}</h3>
+                                       <p className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{ev.desc}</p>
+                                     </div>
+                                   </div>
+                                   
+                                   <div className={`space-y-1 text-sm mb-4 pl-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                     <p className="flex items-center gap-2">
+                                       <Clock size={14} className={ev.type === 'deadline' ? 'text-orange-500' : (ev.type === 'exam' ? 'text-red-500' : 'text-emerald-500')}/> {ev.time}
+                                     </p>
+                                     {ev.venue && <p className="flex items-center gap-2"><MapPin size={14} className="text-emerald-500"/> {ev.venue}</p>}
+                                   </div>
+                                   
+                                   {(ev.type === 'class' || ev.type === 'exam') && (
+                                     <button onClick={() => setCurrentView('navigation')} className={`w-full border p-3 rounded-xl flex items-center justify-between transition-colors shadow-sm ml-2 ${isDarkMode ? 'bg-emerald-900/20 border-emerald-800/50 text-emerald-400 hover:bg-emerald-900/40' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'}`}>
+                                       <div className="flex items-center gap-3"><Navigation size={18} /><span className="font-semibold text-sm">Navigate to Venue</span></div>
+                                       <ChevronRight size={18} />
+                                     </button>
+                                   )}
+                                 </div>
+                               ))}
+                             </div>
+                           )}
+                         </div>
+                       )
+                    })}
+                    
+                    <div className={`text-center pt-2 flex items-center justify-center gap-2 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
+                       <div className={`h-px w-12 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'}`}></div>
+                       <span className="text-xs font-bold uppercase tracking-widest">End of Week</span>
+                       <div className={`h-px w-12 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'}`}></div>
+                    </div>
+                    
+                    <button onClick={handleSync} className={`w-full mt-4 py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all shadow-md bg-[#4285F4] hover:bg-[#357ae8] text-white`}>
+                      <CalendarIcon size={18} /> Sync to Google Calendar
+                    </button>
+                  </div>
+                </div>
+
+                {/* Full Month Calendar Modal (Overlay) */}
+                {showMonthCalendar && (
+                  <div className="absolute inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setShowMonthCalendar(false)}>
+                    <div className={`w-full max-w-[340px] rounded-3xl shadow-2xl p-5 ${isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white'}`} onClick={e => e.stopPropagation()}>
+                       <div className="flex justify-between items-center mb-6">
+                         <button onClick={prevMonth} className={`p-2 rounded-full ${isDarkMode ? 'hover:bg-gray-700 text-white' : 'hover:bg-gray-100 text-gray-800'}`}><CalendarArrowLeft size={20}/></button>
+                         <h2 className={`font-bold text-xl ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                           {calendarMonthDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                         </h2>
+                         <button onClick={nextMonth} className={`p-2 rounded-full ${isDarkMode ? 'hover:bg-gray-700 text-white' : 'hover:bg-gray-100 text-gray-800'}`}><CalendarArrowRight size={20}/></button>
+                       </div>
+
+                       <div className="grid grid-cols-7 gap-2 mb-2 text-center">
+                         {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => <div key={d} className={`text-xs font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{d}</div>)}
+                         {blanks.map(b => <div key={`blank-${b}`} />)}
+                         {monthDays.map(d => {
+                            const cellDate = `${calendarMonthDate.getFullYear()}-${String(calendarMonthDate.getMonth()+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                            const hasEvent = !!scheduleData[cellDate];
+                            const isSelected = selectedDate === cellDate;
+                            return (
+                              <button 
+                                key={d} 
+                                onClick={() => { 
+                                  setSelectedDate(cellDate); 
+                                  const dObj = new Date(cellDate);
+                                  const day = dObj.getDay();
+                                  const diff = dObj.getDate() - day + (day === 0 ? -6: 1); 
+                                  setCurrentWeekStart(new Date(dObj.setDate(diff)));
+                                  setShowMonthCalendar(false); 
+                                  setTimeout(() => handleDateSelect(cellDate), 50);
+                                }}
+                                className={`aspect-square flex flex-col items-center justify-center rounded-full text-sm relative transition-all ${
+                                  isSelected ? 'bg-red-600 text-white font-bold shadow-md' : (isDarkMode ? 'text-gray-200 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100')
+                                }`}
+                              >
+                                <span>{d}</span>
+                                {hasEvent && <div className={`absolute bottom-1 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-emerald-500'}`}></div>}
+                              </button>
+                            )
+                         })}
+                       </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          };
+
+          const NavigationView = () => {
+            const [searchQuery, setSearchQuery] = useState('');
+            const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+            const [expandedCategory, setExpandedCategory] = useState(null);
+            const [selectedDestination, setSelectedDestination] = useState(null);
+            const [isNavigating, setIsNavigating] = useState(false);
+            const [navStep, setNavStep] = useState(1);
+            const [routeDetails, setRouteDetails] = useState(null);
+            
+            const handleSearchClick = () => setIsDropdownOpen(true);
+
+            const generateRouteDetails = (dest) => {
+              const matchSeminar = dest.match(/^C\.(\d)\.(\d{2})$/);
+              if (matchSeminar) {
+                const level = parseInt(matchSeminar[1]);
+                const roomNum = parseInt(matchSeminar[2]);
+                const lift = roomNum <= 10 ? "Lift C2" : "Lift CS";
+                const estTime = level + 2; 
+                let startRoom = 8, endRoom = 16;
+                if (level === 5 || level === 7) startRoom = 7;
+                if (level === 6) { startRoom = 5; endRoom = 13; }
+                if (level === 8) { startRoom = 4; endRoom = 11; }
+                const allRoomsOnFloor = generateRooms('C', level, startRoom, endRoom);
+                const pathStep1 = roomNum <= 10 ? "M 30 90 L 30 40 L 50 40" : "M 30 90 L 75 90 L 75 60"; 
+                const endPtStep1 = roomNum <= 10 ? { top: '40%', left: '50%' } : { top: '60%', left: '75%' };
+
+                return {
+                  type: 'multi-level', time: `${estTime} mins`, dest: dest, level: level, lift: lift,
+                  allRooms: allRoomsOnFloor, targetRoomNum: roomNum,
+                  step1: { instruction: `Walk to ${lift} to head to Level ${level}.`, path: pathStep1, endPoint: endPtStep1 },
+                  step2: { instruction: `Exit ${lift} and follow the corridor to ${dest}.` }
+                };
+              } else if (locationData["Food & Drink"].items.includes(dest)) {
+                return {
+                  type: 'single-level', time: "4 mins", dest: dest,
+                  step1: { instruction: `Walk across the main atrium to ${dest}.`, path: "M 30 90 L 30 70 L 80 70", endPoint: { top: '70%', left: '80%' } }
+                };
+              }
+              return {
+                type: 'single-level', time: "3 mins", dest: dest,
+                step1: { instruction: `Follow the signs to ${dest}.`, path: "M 30 90 Q 30 50, 60 50", endPoint: { top: '50%', left: '60%' } }
+              };
+            };
+
+            const handleSelectDestination = (dest) => {
+              setSelectedDestination(dest);
+              setSearchQuery(dest);
+              setIsDropdownOpen(false);
+              setIsNavigating(false);
+              setNavStep(1);
+              setRouteDetails(generateRouteDetails(dest));
+            };
+
+            const startNavigation = () => { setIsDropdownOpen(false); setIsNavigating(true); setNavStep(1); };
+            const stopNavigation = () => { setIsNavigating(false); setSelectedDestination(null); setSearchQuery(''); setRouteDetails(null); setNavStep(1); };
+            const nextStep = () => { setNavStep(2); };
+
+            const getFilteredResults = () => {
+              if (!searchQuery) return null;
+              let results = [];
+              Object.entries(locationData).forEach(([category, data]) => {
+                const matches = data.items.filter(item => item.toLowerCase().includes(searchQuery.toLowerCase()));
+                if (matches.length > 0) results.push({ category, icon: data.icon, items: matches });
+              });
+              return results;
+            };
+
+            const filteredResults = getFilteredResults();
+
+            return (
+              <div className={`h-full flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-300 relative overflow-hidden pb-16 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-100'}`}>
+                <MobileHeader title="Wayfinder" />
+                
+                <style dangerouslySetInnerHTML={{__html: `
+                  .isometric-map { transform: perspective(1200px) rotateX(60deg) rotateZ(-35deg) scale(1.2) translateY(-10%); transform-style: preserve-3d; transition: all 0.8s ease-in-out; }
+                  .building-block { background: ${isDarkMode ? '#374151' : '#ffffff'}; border: 1px solid ${isDarkMode ? '#4b5563' : '#e2e8f0'}; box-shadow: -10px 10px 15px rgba(0,0,0,0.1), inset -2px 2px 5px rgba(255,255,255,0.8); }
+                  .building-block::before { content: ''; position: absolute; top: 100%; left: 0; width: 100%; height: 20px; background: ${isDarkMode ? '#1f2937' : '#cbd5e1'}; transform-origin: top; transform: skewX(-45deg); }
+                  .building-block::after { content: ''; position: absolute; top: 0; left: 100%; width: 20px; height: 100%; background: ${isDarkMode ? '#111827' : '#94a3b8'}; transform-origin: left; transform: skewY(-45deg); }
+                  @keyframes drawPath { 0% { stroke-dasharray: 200; stroke-dashoffset: 200; } 100% { stroke-dasharray: 200; stroke-dashoffset: 0; } }
+                  .path-animate { animation: drawPath 2.5s ease-out forwards; }
+                `}} />
+
+                <div className={`p-4 shadow-md z-30 flex flex-col gap-3 relative rounded-b-2xl flex-shrink-0 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                    <input 
+                      type="text" 
+                      placeholder="Search rooms, food court..." 
+                      value={searchQuery}
+                      onChange={(e) => { setSearchQuery(e.target.value); setIsDropdownOpen(true); setIsNavigating(false); }}
+                      onClick={handleSearchClick}
+                      className={`w-full py-2 pl-10 pr-4 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500 transition-all ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-100'}`}
+                    />
+                    {searchQuery && (
+                      <button onClick={stopNavigation} className="absolute right-3 top-2 text-gray-400 text-xs font-bold p-1">X</button>
+                    )}
+                  </div>
+                  
+                  {selectedDestination && !isDropdownOpen && !isNavigating && (
+                    <div className={`border p-3 rounded-xl flex justify-between items-center animate-in fade-in ${isDarkMode ? 'bg-blue-900/20 border-blue-900/50' : 'bg-blue-50 border-blue-200'}`}>
+                      <div>
+                        <p className={`text-xs font-semibold ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>Destination</p>
+                        <p className={`text-sm font-bold ${isDarkMode ? 'text-blue-200' : 'text-blue-900'}`}>{selectedDestination}</p>
+                      </div>
+                      <button onClick={startNavigation} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-md transition-all">
+                        <Navigation size={16} /> Start
+                      </button>
+                    </div>
+                  )}
+
+                  {isNavigating && routeDetails && (
+                     <div className={`border-2 p-3 rounded-xl flex flex-col gap-2 shadow-lg animate-in fade-in relative overflow-hidden ${isDarkMode ? 'bg-gray-800 border-emerald-600' : 'bg-white border-emerald-500'}`}>
+                       <div className="absolute top-0 left-0 h-1 bg-emerald-500 transition-all duration-500" style={{ width: navStep === 1 ? '50%' : '100%' }}></div>
+                       <div className="flex justify-between items-start mt-1">
+                         <div>
+                           <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">{routeDetails.type === 'multi-level' ? `Step ${navStep} of 2` : 'Navigating'}</p>
+                           <p className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{navStep === 1 ? routeDetails.step1.instruction : routeDetails.step2.instruction}</p>
+                         </div>
+                       </div>
+                       <div className="flex gap-2 mt-2">
+                         {routeDetails.type === 'multi-level' && navStep === 1 ? (
+                           <button onClick={nextStep} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-sm">
+                             <ArrowUpCircle size={16} /> Reached Lift
+                           </button>
+                         ) : (
+                           <button onClick={stopNavigation} className={`flex-1 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-800'}`}>
+                             End Route
+                           </button>
+                         )}
+                       </div>
+                     </div>
+                  )}
+                </div>
+
+                {/* Dropdown Panel */}
+                {isDropdownOpen && (
+                  <div className={`absolute top-32 left-0 w-full h-[calc(100%-8rem)] z-40 overflow-y-auto shadow-xl animate-in slide-in-from-top-2 pb-20 ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
+                    {filteredResults ? (
+                      <div className="p-4">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Search Results</p>
+                        {filteredResults.map((group, idx) => (
+                          <div key={idx} className="mb-4">
+                            <h4 className={`text-sm font-bold mb-2 flex items-center gap-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}><group.icon size={16} className="text-red-500" /> {group.category}</h4>
+                            <div className="space-y-1">
+                              {group.items.map((item, i) => (
+                                <button key={i} onClick={() => handleSelectDestination(item)} className={`w-full text-left p-2 text-sm rounded-lg flex items-center gap-3 border-b last:border-0 ${isDarkMode ? 'hover:bg-gray-800 text-gray-400 border-gray-800' : 'hover:bg-red-50 text-gray-700 border-gray-50'}`}>
+                                  <MapPin size={14} className="text-gray-400" /> {item}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-4 space-y-2">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Browse Categories</p>
+                        {Object.entries(locationData).map(([category, data], idx) => (
+                          <div key={idx} className={`rounded-xl overflow-hidden shadow-sm border ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                            <button onClick={() => setExpandedCategory(expandedCategory === category ? null : category)} className={`w-full flex justify-between items-center p-3 transition-colors ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-50 hover:bg-gray-100'}`}>
+                              <div className="flex items-center gap-3"><data.icon size={18} className="text-red-600" /><span className={`font-semibold text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>{category}</span></div>
+                              {expandedCategory === category ? <ChevronUp size={16} className={isDarkMode ? 'text-gray-400' : ''}/> : <ChevronDown size={16} className={isDarkMode ? 'text-gray-400' : ''} />}
+                            </button>
+                            {expandedCategory === category && (
+                              <div className={`p-2 max-h-60 overflow-y-auto border-t grid grid-cols-1 gap-1 ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-100'}`}>
+                                {data.items.map((item, i) => (
+                                  <button key={i} onClick={() => handleSelectDestination(item)} className={`text-left text-sm p-3 rounded-md transition-colors border-b last:border-0 ${isDarkMode ? 'text-gray-400 hover:bg-gray-800 hover:text-gray-200 border-gray-800' : 'text-gray-600 hover:bg-red-50 hover:text-red-700 border-gray-50'}`}>{item}</button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                <div className={`flex-1 relative overflow-hidden ${isDarkMode ? 'bg-[#1f2937]' : 'bg-[#e2e8f0]'}`} onClick={() => setIsDropdownOpen(false)}>
+                  <div className={`absolute inset-0 w-full h-full flex items-center justify-center ${navStep === 1 ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'} transition-opacity duration-500`}>
+                    <div className="isometric-map w-[120%] h-[120%] absolute">
+                      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: `linear-gradient(${isDarkMode ? '#4b5563' : '#64748b'} 1px, transparent 1px), linear-gradient(90deg, ${isDarkMode ? '#4b5563' : '#64748b'} 1px, transparent 1px)`, backgroundSize: '40px 40px' }}></div>
+                      <div className="building-block absolute top-[20%] left-[20%] w-[30%] h-[20%] flex items-center justify-center"><span className="font-bold text-gray-400 text-2xl -rotate-90">Block A</span></div>
+                      <div className="building-block absolute top-[50%] left-[20%] w-[30%] h-[20%] flex items-center justify-center"><span className="font-bold text-gray-400 text-2xl -rotate-90">Block B</span></div>
+                      <div className="building-block absolute top-[20%] left-[60%] w-[25%] h-[50%] flex items-center justify-center"><span className="font-bold text-emerald-600/40 text-2xl -rotate-90">Block C</span></div>
+                      <div className="absolute top-[40%] left-[50%] bg-blue-600 text-white text-[8px] px-1 py-0.5 rounded-sm transform -rotate-45 shadow-lg">Lift C2</div>
+                      <div className="absolute top-[60%] left-[75%] bg-blue-600 text-white text-[8px] px-1 py-0.5 rounded-sm transform -rotate-45 shadow-lg">Lift CS</div>
+                      <div className={`building-block absolute top-[75%] left-[60%] w-[25%] h-[15%] flex items-center justify-center ${isDarkMode ? 'bg-orange-900/50' : 'bg-orange-50/80'}`}><span className="font-bold text-orange-400 text-sm -rotate-90"><Coffee size={16}/></span></div>
+                      <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ zIndex: 10 }}>
+                        {isNavigating && navStep === 1 && routeDetails && (
+                          <><path d={routeDetails.step1.path} fill="none" stroke={isDarkMode ? '#4b5563' : '#94a3b8'} strokeWidth="1" strokeDasharray="1 1" /><path d={routeDetails.step1.path} fill="none" stroke="#ef4444" strokeWidth="1" className="path-animate" /></>
+                        )}
+                      </svg>
+                      <div className="absolute top-[90%] left-[30%] -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-xl transform rotate-45"></div>
+                      {isNavigating && navStep === 1 && routeDetails && (
+                        <div className="absolute z-20 transition-transform transform rotate-45" style={{ top: routeDetails.step1.endPoint.top, left: routeDetails.step1.endPoint.left }}><MapPin className="text-red-600 drop-shadow-xl animate-bounce" size={24} /></div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Fixed Non-Squashing Floor Layout Area */}
+                  <div className={`absolute inset-0 w-full h-full p-4 overflow-y-auto ${navStep === 2 ? 'opacity-100 z-10 pointer-events-auto' : 'opacity-0 pointer-events-none'} transition-opacity duration-500 ${isDarkMode ? 'bg-gray-900' : 'bg-[#f8fafc]'}`}>
+                     {navStep === 2 && routeDetails && routeDetails.type === 'multi-level' && (
+                       <div className="w-full flex flex-col relative animate-in zoom-in-95 duration-500 min-h-[450px]">
+                          <div className="text-center mb-4 shrink-0">
+                            <h3 className={`font-black tracking-widest uppercase ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Block C • Level {routeDetails.level}</h3>
+                            <p className="text-xs text-gray-500">Floor Layout</p>
+                          </div>
+                          
+                          <div className="flex justify-around items-end h-28 px-2 gap-1 shrink-0">
+                            {routeDetails.allRooms.slice(0, Math.ceil(routeDetails.allRooms.length/2)).map((room) => (
+                                <div key={room} className={`flex-1 h-full border-2 rounded-t-xl flex items-center justify-center text-[10px] font-bold transition-all ${room === selectedDestination ? 'bg-red-100 border-red-500 text-red-700 shadow-md z-10 scale-105' : (isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-500' : 'bg-white border-gray-200 text-gray-400')}`}>
+                                  <span className="transform -rotate-90 whitespace-nowrap">{room.split('.')[2]}</span>
+                                </div>
+                            ))}
+                          </div>
+                          
+                          <div className={`h-20 w-full relative border-y-2 flex items-center shadow-inner shrink-0 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-200 border-gray-300'}`}>
+                             <div className="absolute left-[10%] -top-2 bg-blue-600 text-white text-[8px] font-bold px-2 py-1 rounded shadow-sm">LIFT C2</div>
+                             <div className="absolute right-[10%] -bottom-2 bg-blue-600 text-white text-[8px] font-bold px-2 py-1 rounded shadow-sm">LIFT CS</div>
+                             <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
+                               <path d={routeDetails.lift === "Lift C2" ? "M 10% 50% L 70% 50%" : "M 90% 50% L 30% 50%"} fill="none" stroke="#ef4444" strokeWidth="4" strokeDasharray="4 4" className="path-animate"/>
+                             </svg>
+                          </div>
+                          
+                          <div className="flex justify-around items-start h-28 px-2 gap-1 shrink-0">
+                            {routeDetails.allRooms.slice(Math.ceil(routeDetails.allRooms.length/2)).map((room) => (
+                                <div key={room} className={`flex-1 h-full border-2 rounded-b-xl flex items-center justify-center text-[10px] font-bold transition-all ${room === selectedDestination ? 'bg-red-100 border-red-500 text-red-700 shadow-md z-10 scale-105' : (isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-500' : 'bg-white border-gray-200 text-gray-400')}`}>
+                                  <span className="transform -rotate-90 whitespace-nowrap">{room.split('.')[2]}</span>
+                                </div>
+                            ))}
+                          </div>
+                          
+                          <div className={`mt-6 p-3 rounded-xl border flex items-start gap-2 shadow-sm shrink-0 ${isDarkMode ? 'bg-blue-900/20 border-blue-900/50' : 'bg-blue-50 border-blue-100'}`}>
+                            <Info size={16} className="text-blue-500 flex-shrink-0 mt-0.5" />
+                            <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-blue-200' : 'text-blue-800'}`}>The floor plan helps you locate <strong>{selectedDestination}</strong> in relation to other classrooms on Level {routeDetails.level}.</p>
+                          </div>
+                       </div>
+                     )}
+                  </div>
+                </div>
+              </div>
+            );
+          };
+
+          const CCTVView = () => {
+            const [activeCam, setActiveCam] = useState('sim_canteen');
+            const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second: '2-digit'}));
+
+            useEffect(() => {
+              const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second: '2-digit'})), 1000);
+              return () => clearInterval(timer);
+            }, []);
+
+            const cameras = {
+              sim_canteen: { id: 'sim_canteen', name: 'SIM Canteen', img: 'https://alric.com.sg/wp-content/uploads/2024/12/kampungSIM2.jpg', status: 'Highly Crowded', occupancy: '85%', colorClass: 'text-red-600', bgClass: 'bg-red-50', borderClass: 'border-red-200', barColor: 'bg-red-500' },
+              food_clique: { id: 'food_clique', name: 'Food Clique', img: 'https://lh3.googleusercontent.com/gps-cs-s/AHVAwered3cHmQ4i0Y4weT3OjBZ_qKSlYbAHFhyZ5osPsW4vb3qqNgbqSCM--DzY8nYtXL0LAHk-M__-6FTcJIdiWojUBq4ymNzIcU49uUvhArIS0wDF19m91kiXG7xDP8U8c7JKGcKaWCklRdWM=s680-w680-h510', status: 'Available Seats', occupancy: '35%', colorClass: 'text-emerald-600', bgClass: 'bg-emerald-50', borderClass: 'border-emerald-200', barColor: 'bg-emerald-500' }
+            };
+            const currentCam = cameras[activeCam];
+
+            return (
+              <div className={`h-full flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-300 overflow-y-auto pb-16 ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-800'}`}>
+                <MobileHeader title="Crowd Cams" />
+                <div className="p-4">
+                  <div className={`flex p-1 rounded-xl mb-5 shadow-inner ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
+                    <button onClick={() => setActiveCam('sim_canteen')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeCam === 'sim_canteen' ? (isDarkMode ? 'bg-gray-700 text-white shadow' : 'bg-white text-gray-900 shadow') : (isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700')}`}>SIM Canteen</button>
+                    <button onClick={() => setActiveCam('food_clique')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeCam === 'food_clique' ? (isDarkMode ? 'bg-gray-700 text-white shadow' : 'bg-white text-gray-900 shadow') : (isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700')}`}>Food Clique</button>
+                  </div>
+                  <div className="bg-black rounded-2xl overflow-hidden relative shadow-lg aspect-video mb-5 animate-in fade-in duration-500">
+                    <img src={currentCam.img} alt={currentCam.name} className="w-full h-full object-cover opacity-90" />
+                    <div className="absolute top-3 left-3 flex gap-2">
+                      <div className="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded animate-pulse tracking-widest flex items-center gap-1 shadow-md"><div className="w-1.5 h-1.5 bg-white rounded-full"></div> LIVE</div>
+                      <div className="bg-black/60 backdrop-blur text-white text-[10px] font-bold px-2 py-1 rounded shadow-md">CAM 0{activeCam === 'sim_canteen' ? '1' : '2'}</div>
+                    </div>
+                    <div className="absolute top-3 right-3 bg-black/60 backdrop-blur text-white font-mono text-xs px-2 py-1 rounded shadow-md border border-white/20">{currentTime}</div>
+                  </div>
+                  <div className={`p-4 rounded-xl border shadow-sm transition-colors duration-300 ${isDarkMode ? currentCam.bgClass.replace('bg-', 'bg-opacity-10 bg-') : currentCam.bgClass} ${isDarkMode ? currentCam.borderClass.replace('border-', 'border-opacity-30 border-') : currentCam.borderClass}`}>
+                    <div className="flex justify-between items-end mb-3">
+                      <div>
+                        <h3 className={`font-bold mb-1 ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>Occupancy Rate</h3>
+                        <p className={`text-lg font-black flex items-center gap-2 ${currentCam.colorClass}`}><Activity size={20} /> {currentCam.status}</p>
+                      </div>
+                      <div className={`text-3xl font-black ${currentCam.colorClass}`}>{currentCam.occupancy}</div>
+                    </div>
+                    <div className={`w-full rounded-full h-3 mb-2 overflow-hidden border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-white/50'}`}>
+                      <div className={`h-3 rounded-full transition-all duration-1000 ${currentCam.barColor}`} style={{ width: currentCam.occupancy }}></div>
+                    </div>
+                    <p className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{activeCam === 'sim_canteen' ? 'Peak hours expected to end in ~30 mins.' : 'Plenty of seating available right now.'}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          };
+
+          const IDCardView = () => (
+            <div className={`h-full flex flex-col animate-in fade-in zoom-in-95 duration-300 pb-16 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+              <MobileHeader title="Student ID" />
+              <div className="flex-1 flex flex-col items-center justify-center p-5">
+                <div className="w-full max-w-sm bg-gradient-to-br from-red-600 to-red-800 rounded-3xl p-6 text-white shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-[-50px] right-[-50px] w-40 h-40 bg-white opacity-10 rounded-full"></div>
+                  <div className="absolute bottom-[-20px] left-[-20px] w-24 h-24 bg-white opacity-10 rounded-full"></div>
+                  <div className="flex justify-between items-start mb-8 relative z-10">
+                    <div><h2 className="text-2xl font-black tracking-wider">SUSS</h2><p className="text-xs text-red-200 uppercase tracking-widest mt-1">Student Identity</p></div>
+                    <div className="w-16 h-16 bg-white rounded-xl shadow-inner flex items-center justify-center overflow-hidden">
+                      <img 
+                        src="https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&q=80&w=2550&ixlib=rb-4.0.3" 
+                        alt="Student Portrait" 
+                        className="w-full h-full object-cover object-top"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-4 relative z-10">
+                    <div><p className="text-xs text-red-200 uppercase tracking-wider">Name</p><p className="font-bold text-xl">{user.name}</p></div>
+                    <div className="flex justify-between">
+                      <div><p className="text-xs text-red-200 uppercase tracking-wider">Student ID</p><p className="font-mono font-bold tracking-wider">{user.id}</p></div>
+                      <div><p className="text-xs text-red-200 uppercase tracking-wider">Valid Thru</p><p className="font-mono font-bold tracking-wider">12/28</p></div>
+                    </div>
+                  </div>
+                  <div className="mt-8 bg-white p-3 rounded-xl relative z-10">
+                     <div className="h-12 w-full flex gap-1 justify-center items-center opacity-80 mix-blend-multiply">
+                        {[...Array(30)].map((_, i) => (<div key={i} className={`h-full bg-black ${Math.random() > 0.5 ? 'w-1' : 'w-2'}`}></div>))}
+                     </div>
+                  </div>
+                </div>
+                <p className={`text-sm mt-6 text-center px-4 font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Tap card against reader to access campus facilities.</p>
+              </div>
+            </div>
+          );
+
+          const CGPAView = () => {
+            const [simModules, setSimModules] = useState([{ id: 1, name: 'New Module', grade: 'B+', cu: 5 }]);
+            const gradePoints = { 'A+': 5.0, 'A': 5.0, 'A-': 4.5, 'B+': 4.0, 'B': 3.5, 'B-': 3.0, 'C+': 2.5, 'C': 2.0, 'D+': 1.5, 'D': 1.0, 'F': 0.0 };
+            
+            const currentTotalPoints = user.currentCGPA * user.currentCUs;
+            let simTotalPoints = 0;
+            let simCUs = 0;
+            
+            simModules.forEach(mod => {
+              if (gradePoints[mod.grade] !== undefined && mod.cu > 0) {
+                simTotalPoints += gradePoints[mod.grade] * mod.cu;
+                simCUs += mod.cu;
+              }
+            });
+
+            const projectedCGPA = simCUs > 0 
+              ? ((currentTotalPoints + simTotalPoints) / (user.currentCUs + simCUs)).toFixed(2)
+              : user.currentCGPA.toFixed(2);
+
+            const addModule = () => setSimModules([...simModules, { id: Date.now(), name: 'New Module', grade: 'B', cu: 5 }]);
+            const removeModule = (id) => setSimModules(simModules.filter(m => m.id !== id));
+            const updateModule = (id, field, value) => {
+              setSimModules(simModules.map(m => m.id === id ? { ...m, [field]: field === 'cu' ? Number(value) : value } : m));
+            };
+
+            return (
+              <div className={`h-full flex flex-col animate-in fade-in zoom-in-95 duration-300 pb-16 overflow-y-auto ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+                <MobileHeader title="Academic Progress" />
+                <div className="p-5">
+                  <div className={`p-6 rounded-3xl shadow-sm border flex flex-col items-center justify-center mb-6 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                    <h3 className={`font-bold mb-2 uppercase tracking-widest text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cumulative GPA</h3>
+                    <div className="relative w-40 h-40 flex items-center justify-center">
+                      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="45" fill="none" stroke={isDarkMode ? '#374151' : '#f3f4f6'} strokeWidth="8" />
+                        <circle cx="50" cy="50" r="45" fill="none" stroke="#dc2626" strokeWidth="8" strokeDasharray="282.7" strokeDashoffset={282.7 - (282.7 * (projectedCGPA / 5.0))} strokeLinecap="round" className="transition-all duration-500" />
+                      </svg>
+                      <div className="absolute text-center">
+                        <span className={`text-4xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{projectedCGPA}</span>
+                        <span className={`block text-sm font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>/ 5.0</span>
+                      </div>
+                    </div>
+                    <p className={`font-bold mt-4 px-4 py-1.5 rounded-full text-xs tracking-wide ${isDarkMode ? 'bg-emerald-900/30 text-emerald-400' : 'text-emerald-700 bg-emerald-50'}`}>
+                      {projectedCGPA >= 4.5 ? 'FIRST CLASS HONS' : (projectedCGPA >= 4.0 ? 'SECOND UPPER' : 'ON TRACK')}
+                    </p>
+                  </div>
+
+                  <div className={`p-4 rounded-2xl shadow-sm border mb-6 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                    <div className="flex justify-between items-center mb-4">
+                      <h4 className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>CGPA Simulator</h4>
+                      <button onClick={addModule} className="p-1 bg-red-100 text-red-600 rounded-full hover:bg-red-200"><Plus size={16}/></button>
+                    </div>
+                    
+                    <div className="space-y-3 mb-2">
+                      {simModules.map((mod) => (
+                        <div key={mod.id} className={`flex gap-2 items-center p-2 rounded-lg border ${isDarkMode ? 'border-gray-700 bg-gray-700/50' : 'border-gray-100 bg-gray-50'}`}>
+                           <input 
+                             type="text" 
+                             value={mod.name} 
+                             onChange={(e) => updateModule(mod.id, 'name', e.target.value)}
+                             className={`flex-1 text-sm font-medium bg-transparent outline-none w-20 ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}
+                           />
+                           <select 
+                             value={mod.cu} 
+                             onChange={(e) => updateModule(mod.id, 'cu', e.target.value)}
+                             className={`text-xs font-bold p-1 rounded outline-none cursor-pointer ${isDarkMode ? 'bg-gray-600 text-gray-200' : 'bg-white border'}`}
+                           >
+                             <option value="2.5">2.5 CU</option><option value="5">5 CU</option><option value="10">10 CU</option>
+                           </select>
+                           <select 
+                             value={mod.grade} 
+                             onChange={(e) => updateModule(mod.id, 'grade', e.target.value)}
+                             className={`text-xs font-bold p-1 rounded outline-none cursor-pointer ${isDarkMode ? 'bg-red-900/50 text-red-300' : 'bg-red-50 text-red-600 border border-red-100'}`}
+                           >
+                             {Object.keys(gradePoints).map(g => <option key={g} value={g}>{g}</option>)}
+                           </select>
+                           <button onClick={() => removeModule(mod.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={14}/></button>
+                        </div>
+                      ))}
+                    </div>
+                    <p className={`text-[10px] text-center mt-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Current: {user.currentCGPA} CGPA ({user.currentCUs} CUs completed)</p>
+                  </div>
+
+                  <div className={`p-4 rounded-2xl shadow-sm border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                    <h4 className={`font-bold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Recent Grades</h4>
+                    <div className="space-y-3">
+                      <div className={`flex justify-between items-center border-b pb-3 ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                        <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>MKT202 Consumer Behavior</span>
+                        <span className={`font-black px-2 py-1 rounded ${isDarkMode ? 'bg-red-900/30 text-red-400' : 'text-red-600 bg-red-50'}`}>A-</span>
+                      </div>
+                      <div className="flex justify-between items-center pb-1">
+                        <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>HRM313 HR Management</span>
+                        <span className={`font-black px-2 py-1 rounded ${isDarkMode ? 'bg-red-900/30 text-red-400' : 'text-red-600 bg-red-50'}`}>B+</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          };
+
+          const BookingsView = () => {
+            const [step, setStep] = useState('select_facility'); 
+            const [facility, setFacility] = useState(null); 
+            const [selectedSlots, setSelectedSlots] = useState([]);
+            const [warning, setWarning] = useState('');
+
+            const facilities = [
+              { id: 'discussion', title: 'Discussion Rooms', location: 'Library (Block C)', icon: BookOpen, color: 'text-blue-600', bg: 'bg-blue-100', avail: '4 rooms available', rooms: ['Discussion Room 1', 'Discussion Room 2', 'Discussion Room 3', 'Discussion Room 4', 'Discussion Room 5'] },
+              { id: 'sim_gym', title: 'SIM Gym', location: 'SIM HQ', icon: TrendingUp, color: 'text-orange-600', bg: 'bg-orange-100', avail: 'Moderate capacity', rooms: ['Cardio Gym', 'Free Weights Gym'] },
+              { id: 'blk23', title: 'Blk 23 Discussion', location: 'Ngee Ann Poly', icon: Users, color: 'text-purple-600', bg: 'bg-purple-100', avail: 'Fully booked today', rooms: ['NP Room A', 'NP Room B'] },
+            ];
+
+            const timeSlots = ['1:00pm', '2:00pm', '3:00pm', '4:00pm', '5:00pm', '6:00pm', '7:00pm', '8:00pm'];
+            
+            const mockBooked = {
+              'discussion': { 'Discussion Room 1': ['3:00pm', '4:00pm', '5:00pm'], 'Discussion Room 2': ['5:00pm', '6:00pm', '7:00pm'], 'Discussion Room 3': ['1:00pm', '2:00pm'], },
+              'sim_gym': { 'Cardio Gym': ['5:00pm', '6:00pm', '7:00pm'], 'Free Weights Gym': ['6:00pm', '7:00pm'] },
+              'blk23': { 'NP Room A': ['1:00pm', '2:00pm', '3:00pm', '4:00pm', '5:00pm', '6:00pm', '7:00pm', '8:00pm'], 'NP Room B': ['1:00pm', '2:00pm', '3:00pm', '4:00pm', '5:00pm', '6:00pm', '7:00pm', '8:00pm'] }
+            };
+
+            const handleSelectFacility = (fac) => { setFacility(fac); setSelectedSlots([]); setWarning(''); setStep('grid'); };
+
+            const toggleSlot = (room, time) => {
+              const currentMock = mockBooked[facility.id] || {};
+              if (currentMock[room]?.includes(time)) return; 
+              
+              const slotId = `${room}-${time}`;
+              if (selectedSlots.includes(slotId)) {
+                setSelectedSlots(selectedSlots.filter(id => id !== slotId)); setWarning('');
+              } else {
+                if (selectedSlots.length >= 2) { setWarning('Maximum booking limit is 2 hours (2 slots) per person.'); return; }
+                if (selectedSlots.length === 1) {
+                  const firstRoom = selectedSlots[0].split('-')[0];
+                  if (firstRoom !== room) { setWarning('Please select slots in the same room/zone.'); return; }
+                }
+                setSelectedSlots([...selectedSlots, slotId]); setWarning('');
+              }
+            };
+
+            return (
+              <div className={`h-full flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-300 pb-16 ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-800'}`}>
+                <MobileHeader title={step === 'select_facility' ? 'Campus Facilities' : `Book ${facility?.title}`} />
+                
+                {step === 'select_facility' && (
+                  <div className="p-5 flex-1 overflow-y-auto">
+                    <h2 className="text-xl font-bold mb-6">Select Facility</h2>
+                    <div className="grid gap-4">
+                      {facilities.map((item, i) => (
+                        <div key={i} onClick={() => handleSelectFacility(item)} className={`p-4 rounded-2xl shadow-sm border flex items-center justify-between transition-transform hover:scale-[1.02] cursor-pointer ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                          <div className="flex items-center gap-4">
+                            <div className={`p-3 rounded-xl ${item.bg} ${item.color}`}><item.icon size={24} /></div>
+                            <div><h3 className="font-bold">{item.title}</h3><p className={`text-xs mt-1 font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{item.location} • {item.avail}</p></div>
+                          </div>
+                          <ChevronRight className="text-gray-400" size={20} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {step === 'grid' && facility && (
+                  <div className="flex-1 min-h-0 flex flex-col p-4 animate-in slide-in-from-right-4">
+                    <div className="flex justify-between items-center mb-2 shrink-0">
+                      <h3 className="font-bold">Select Time Slots</h3>
+                      <button onClick={() => setStep('select_facility')} className="text-xs font-bold text-red-500 bg-red-50 px-2 py-1 rounded">Change Facility</button>
+                    </div>
+                    <p className={`text-xs mb-4 shrink-0 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Tap to select up to 2 hours (1hr blocks).</p>
+
+                    <div className={`flex gap-4 mb-4 text-xs font-semibold justify-center p-3 rounded-xl border shadow-sm shrink-0 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                      <div className="flex items-center gap-1"><div className="w-3 h-3 bg-green-500 rounded-sm"></div> Available</div>
+                      <div className="flex items-center gap-1"><div className="w-3 h-3 bg-amber-500 rounded-sm"></div> Selected</div>
+                      <div className="flex items-center gap-1"><div className="w-3 h-3 bg-red-600 rounded-sm"></div> Booked</div>
+                    </div>
+
+                    {warning && (<div className="mb-4 bg-red-50 text-red-600 text-xs p-2 rounded-lg flex items-center gap-2 font-bold animate-in zoom-in-95 shrink-0"><AlertTriangle size={14} /> {warning}</div>)}
+
+                    {/* Scrollable Booking Grid: min-h-0 and overflow-auto for smooth native scrolling */}
+                    <div className={`flex-1 min-h-0 overflow-auto border rounded-xl shadow-sm custom-scrollbar relative ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                       <div className="min-w-[600px] flex flex-col">
+                          <div className={`flex border-b sticky top-0 z-20 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                            <div className={`w-32 flex-shrink-0 p-3 text-xs font-bold border-r sticky left-0 z-30 ${isDarkMode ? 'bg-gray-800 text-gray-300 border-gray-700' : 'bg-gray-50 text-gray-600 border-gray-200'}`}>{facility.id === 'sim_gym' ? 'Zone' : 'Room (Cap. 5)'}</div>
+                            {timeSlots.map(time => (<div key={time} className={`flex-1 text-center p-3 text-xs font-bold border-r last:border-0 ${isDarkMode ? 'border-gray-700 text-gray-300' : 'border-gray-200 text-gray-600'}`}>{time}</div>))}
+                          </div>
+                          {facility.rooms.map((room) => (
+                            <div key={room} className={`flex border-b last:border-0 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                              <div className={`w-32 flex-shrink-0 p-3 text-[10px] font-bold border-r flex items-center sticky left-0 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] ${isDarkMode ? 'bg-gray-800 text-gray-200 border-gray-700' : 'bg-white text-gray-800 border-gray-200'}`}>{room}</div>
+                              {timeSlots.map(time => {
+                                const slotId = `${room}-${time}`;
+                                const currentMock = mockBooked[facility.id] || {};
+                                const isBooked = currentMock[room]?.includes(time);
+                                const isSelected = selectedSlots.includes(slotId);
+                                
+                                let bgClass = "bg-green-500 hover:bg-green-400 cursor-pointer"; 
+                                if (isBooked) bgClass = "bg-red-600 cursor-not-allowed opacity-80"; 
+                                if (isSelected) bgClass = "bg-amber-500 shadow-inner"; 
+
+                                return (
+                                  <div 
+                                    key={time} 
+                                    className={`flex-1 h-12 border-r last:border-0 transition-colors ${bgClass} ${isDarkMode && !isBooked && !isSelected ? 'border-gray-700 opacity-90' : 'border-gray-200'}`} 
+                                    onClick={() => toggleSlot(room, time)}
+                                  ></div>
+                                );
+                              })}
+                            </div>
+                          ))}
+                       </div>
+                    </div>
+
+                    <div className="mt-4 shrink-0">
+                      <button disabled={selectedSlots.length === 0} onClick={() => setStep('form')} className={`w-full py-3 rounded-xl font-bold transition-all ${selectedSlots.length > 0 ? 'bg-red-600 text-white shadow-md hover:bg-red-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>Continue ({selectedSlots.length} hours)</button>
+                    </div>
+                  </div>
+                )}
+
+                {step === 'form' && (
+                  <div className="flex-1 overflow-y-auto p-5 pb-32 animate-in slide-in-from-right-4 duration-300">
+                    <h3 className="font-bold text-xl mb-1">Confirm Booking</h3>
+                    <p className={`text-sm mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>You have selected {selectedSlots.length} hour(s) for {facility?.title}.</p>
+                    <div className={`p-4 rounded-xl shadow-sm border mb-6 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                       {selectedSlots.map((slot, i) => {
+                         const [room, time] = slot.split('-');
+                         return (<div key={i} className="flex justify-between items-center mb-2 last:mb-0 text-sm font-semibold"><span>{room}</span><span className="bg-amber-100 text-amber-800 px-2 py-1 rounded">{time}</span></div>)
+                       })}
+                    </div>
+                    <div className="space-y-4">
+                      <div><label className={`block text-xs font-bold uppercase tracking-wide mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Admission Number</label><input type="text" defaultValue="S1234567A" className={`w-full border px-4 py-3 rounded-xl focus:ring-2 focus:ring-red-500 focus:outline-none font-mono ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`} /></div>
+                      <div><label className={`block text-xs font-bold uppercase tracking-wide mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Student Email</label><input type="email" defaultValue={user.email} className={`w-full border px-4 py-3 rounded-xl focus:ring-2 focus:ring-red-500 focus:outline-none ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`} /></div>
+                    </div>
+                    <div className="mt-8 flex gap-3">
+                      <button onClick={() => setStep('grid')} className={`flex-1 py-3 rounded-xl font-bold ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-800'}`}>Back</button>
+                      <button onClick={() => setStep('success')} className="flex-[2] bg-red-600 text-white py-3 rounded-xl font-bold shadow-md">Confirm</button>
+                    </div>
+                  </div>
+                )}
+
+                {step === 'success' && (
+                  <div className="flex-1 flex flex-col items-center justify-center p-5 text-center animate-in zoom-in-95 duration-300">
+                    <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6 shadow-inner"><CheckCircle size={40} /></div>
+                    <h3 className="text-2xl font-black mb-2">Verification Sent</h3>
+                    <p className={`mb-8 max-w-[250px] ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>We've sent a verification email to <strong>{user.email}</strong>. Please click the link inside within <span className="text-red-500 font-bold">15 minutes</span> to confirm your booking.</p>
+                    <button onClick={() => setCurrentView('home')} className="w-full bg-red-600 text-white py-4 rounded-xl font-bold shadow-lg">Return to Home</button>
+                  </div>
+                )}
+              </div>
+            );
+          };
+
+          return (
+            <div className="flex justify-center bg-gray-200 min-h-screen p-4 sm:p-8 font-sans">
+              <div className={`w-full max-w-[400px] h-[850px] max-h-[95vh] shrink-0 rounded-[2.5rem] shadow-2xl relative overflow-hidden border-[8px] border-gray-900 transition-colors ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+                
+                <div className="h-full overflow-hidden flex flex-col">
+                  {currentView === 'home' && <HomeView />}
+                  {currentView === 'navigation' && <NavigationView />}
+                  {currentView === 'cctv' && <CCTVView />}
+                  {currentView === 'idcard' && <IDCardView />}
+                  {currentView === 'bookings' && <BookingsView />}
+                  {currentView === 'cgpa' && <CGPAView />}
+                </div>
+
+                {/* Global Bottom Navigation */}
+                <div className={`absolute bottom-0 w-full px-4 py-3 flex justify-between items-center z-[100] shadow-[0_-5px_15px_rgba(0,0,0,0.1)] transition-colors ${isDarkMode ? 'bg-gray-800 border-t border-gray-700' : 'bg-white border-t border-gray-100'}`}>
+                  <button onClick={() => setCurrentView('home')} className={`flex flex-col items-center gap-1 transition-colors ${currentView === 'home' ? 'text-red-500' : (isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600')}`}>
+                    <Home size={20} className={currentView === 'home' && !isDarkMode ? 'fill-red-100' : ''} />
+                    <span className="text-[9px] font-bold">Home</span>
+                  </button>
+                  
+                  <button onClick={() => setCurrentView('navigation')} className={`flex flex-col items-center gap-1 transition-colors ${currentView === 'navigation' ? 'text-red-500' : (isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600')}`}>
+                    <MapPin size={20} className={currentView === 'navigation' && !isDarkMode ? 'fill-red-100' : ''} />
+                    <span className="text-[9px] font-bold">Map</span>
+                  </button>
+
+                  <button onClick={() => setCurrentView('cctv')} className={`flex flex-col items-center gap-1 transition-colors ${currentView === 'cctv' ? 'text-red-500' : (isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600')}`}>
+                    <Video size={20} className={currentView === 'cctv' && !isDarkMode ? 'fill-red-100' : ''} />
+                    <span className="text-[9px] font-bold">Cameras</span>
+                  </button>
+
+                  <button onClick={() => setCurrentView('idcard')} className={`flex flex-col items-center gap-1 transition-colors ${currentView === 'idcard' ? 'text-red-500' : (isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600')}`}>
+                    <CreditCard size={20} className={currentView === 'idcard' && !isDarkMode ? 'fill-red-100' : ''} />
+                    <span className="text-[9px] font-bold">ID Card</span>
+                  </button>
+
+                  <button onClick={() => setCurrentView('bookings')} className={`flex flex-col items-center gap-1 transition-colors ${currentView === 'bookings' ? 'text-red-500' : (isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600')}`}>
+                    <CalendarIcon size={20} className={currentView === 'bookings' && !isDarkMode ? 'fill-red-100' : ''} />
+                    <span className="text-[9px] font-bold">Book</span>
+                  </button>
+
+                  <button onClick={() => setCurrentView('cgpa')} className={`flex flex-col items-center gap-1 transition-colors ${currentView === 'cgpa' ? 'text-red-500' : (isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600')}`}>
+                    <Menu size={20} className={currentView === 'cgpa' && !isDarkMode ? 'fill-red-100' : ''} />
+                    <span className="text-[9px] font-bold">Grades</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
